@@ -1,0 +1,1020 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kütle Hesap</title>
+<meta name="description" content="Çelik profil kütle hesaplama aracı — internetsiz çalışır.">
+<meta name="theme-color" content="#155e75">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+:root {
+  --bg: #f3f5f7;
+  --surface: #ffffff;
+  --surface-2: #eef2f5;
+  --text: #14202b;
+  --muted: #5d6c7b;
+  --border: #dde3e9;
+  --accent: #155e75;
+  --accent-hover: #0f4c5f;
+  --accent-soft: #e2f1f6;
+  --on-accent: #ffffff;
+  --result-bg: #155e75;
+  --result-text: #ffffff;
+  --result-muted: #bfe0ea;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --shape-fill: #cfe7ef;
+  --shape-stroke: #155e75;
+  --shadow: 0 1px 2px rgba(20, 32, 43, .05), 0 4px 16px rgba(20, 32, 43, .05);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1418;
+    --surface: #161f26;
+    --surface-2: #1e2a33;
+    --text: #e5edf3;
+    --muted: #94a5b4;
+    --border: #283741;
+    --accent: #5cc3dc;
+    --accent-hover: #7ed2e6;
+    --accent-soft: #143440;
+    --on-accent: #062029;
+    --result-bg: #143440;
+    --result-text: #e9f7fb;
+    --result-muted: #8fc3d2;
+    --danger: #f2877c;
+    --danger-soft: #3a1d1b;
+    --shape-fill: #1c4552;
+    --shape-stroke: #5cc3dc;
+    --shadow: none;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1418;
+  --surface: #161f26;
+  --surface-2: #1e2a33;
+  --text: #e5edf3;
+  --muted: #94a5b4;
+  --border: #283741;
+  --accent: #5cc3dc;
+  --accent-hover: #7ed2e6;
+  --accent-soft: #143440;
+  --on-accent: #062029;
+  --result-bg: #143440;
+  --result-text: #e9f7fb;
+  --result-muted: #8fc3d2;
+  --danger: #f2877c;
+  --danger-soft: #3a1d1b;
+  --shape-fill: #1c4552;
+  --shape-stroke: #5cc3dc;
+  --shadow: none;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Üst bar */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top));
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -.01em; }
+.brand-mark {
+  width: 32px; height: 32px; border-radius: 9px; background: var(--accent);
+  display: grid; place-items: center;
+}
+.brand-mark svg { width: 18px; height: 18px; fill: var(--on-accent); }
+.topbar .spacer { flex: 1; }
+.icon-btn {
+  width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--surface); display: grid; place-items: center;
+}
+.icon-btn:hover { background: var(--surface-2); }
+.icon-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Yerleşim */
+.layout {
+  max-width: 1120px; margin: 0 auto; padding: 16px;
+  display: grid; gap: 16px;
+}
+.col { display: grid; gap: 16px; align-content: start; min-width: 0; }
+@media (min-width: 900px) {
+  .layout { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); padding: 24px; gap: 24px; }
+  .col { gap: 20px; }
+  .list-col { position: sticky; top: 90px; }
+}
+
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+  padding: 18px; box-shadow: var(--shadow); min-width: 0;
+}
+.card-title {
+  margin: 0 0 14px; font-size: 13px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.field + .field { margin-top: 16px; }
+.label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.hint { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+/* Arama */
+.search { position: relative; margin-bottom: 16px; }
+.search input {
+  width: 100%; height: 48px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--surface-2); padding: 0 14px 0 42px; font-size: 16px;
+}
+.search input:focus { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--surface); }
+.search > svg {
+  position: absolute; left: 14px; top: 14px; width: 20px; height: 20px;
+  stroke: var(--muted); fill: none; stroke-width: 2; stroke-linecap: round;
+}
+.results {
+  position: absolute; left: 0; right: 0; top: 54px; z-index: 15;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .16); max-height: 320px; overflow: auto; padding: 6px;
+}
+.results[hidden] { display: none; }
+.results button {
+  display: flex; justify-content: space-between; gap: 12px; width: 100%;
+  padding: 11px 12px; border: 0; border-radius: 8px; background: none; text-align: left;
+}
+.results button:hover, .results button.active { background: var(--accent-soft); }
+.results .r-g { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.results .empty { padding: 12px; color: var(--muted); }
+
+/* Aile çipleri */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface); font-size: 15px; font-weight: 500; white-space: nowrap;
+}
+.chip:hover { background: var(--surface-2); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.group-label { font-size: 12px; color: var(--muted); margin: 12px 0 6px; font-weight: 600; }
+.group-label:first-child { margin-top: 0; }
+@media (max-width: 520px) {
+  .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -18px; padding: 0 18px; }
+  .chips::-webkit-scrollbar { display: none; }
+  .group-label { margin-top: 10px; }
+}
+
+.select-wrap { position: relative; }
+.select-wrap select {
+  width: 100%; height: 52px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--surface-2); padding: 0 44px 0 14px; font-size: 18px; font-weight: 600;
+  appearance: none; -webkit-appearance: none;
+}
+.select-wrap select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.select-wrap::after {
+  content: ""; position: absolute; right: 18px; top: 21px; width: 8px; height: 8px;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg); pointer-events: none;
+}
+
+/* Kesit bilgisi */
+.profile-info { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; margin-top: 16px; align-items: center; }
+.sketch { width: 120px; height: 120px; background: var(--surface-2); border-radius: 12px; display: grid; place-items: center; }
+.sketch svg { width: 100%; height: 100%; }
+.props { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px 14px; font-size: 14px; }
+.prop { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dashed var(--border); padding: 3px 0; }
+.prop .k { color: var(--muted); }
+.prop .v { font-weight: 600; text-align: right; }
+.prop .u { color: var(--muted); font-weight: 400; font-size: 12px; }
+@media (max-width: 420px) {
+  .profile-info { grid-template-columns: 1fr; }
+  .sketch { width: 100%; height: 130px; }
+}
+
+/* Giriş alanları */
+.row2 { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+.input {
+  width: 100%; height: 52px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--surface-2); padding: 0 14px; font-size: 20px; font-weight: 600;
+}
+.input:focus { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--surface); }
+.input.invalid { outline: 2px solid var(--danger); outline-offset: -1px; }
+.seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 4px; gap: 4px; }
+.seg button {
+  min-width: 52px; height: 42px; padding: 0 12px; border: 0; border-radius: 9px;
+  background: none; font-weight: 600; color: var(--muted);
+}
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.seg.full { display: flex; width: 100%; }
+.seg.full button { flex: 1; }
+.quick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.quick button {
+  height: 34px; padding: 0 12px; border-radius: 999px; border: 1px dashed var(--border);
+  background: none; font-size: 14px; color: var(--muted);
+}
+.quick button:hover { border-style: solid; color: var(--text); }
+.stepper { display: grid; grid-template-columns: 52px minmax(0, 1fr) 52px; gap: 8px; }
+.stepper button {
+  height: 52px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface);
+  font-size: 24px; line-height: 1;
+}
+.stepper button:hover { background: var(--surface-2); }
+.stepper .input { text-align: center; }
+
+/* Sonuç */
+.result { background: var(--result-bg); color: var(--result-text); border: 0; }
+.result .card-title { color: var(--result-muted); }
+.big { font-size: clamp(36px, 9vw, 48px); font-weight: 750; letter-spacing: -.02em; line-height: 1.05; }
+.big small { font-size: .45em; font-weight: 600; margin-left: 4px; color: var(--result-muted); }
+.ton { color: var(--result-muted); font-size: 14px; margin-top: 4px; min-height: 20px; }
+.sub { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--result-text) 18%, transparent); }
+.sub .k { font-size: 13px; color: var(--result-muted); }
+.sub .v { font-size: 18px; font-weight: 650; }
+.actions { display: flex; gap: 10px; margin-top: 18px; }
+.btn {
+  height: 52px; padding: 0 20px; border-radius: 14px; border: 0; font-weight: 650; font-size: 16px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.btn-primary { flex: 1; background: var(--result-text); color: var(--result-bg); }
+.btn-primary:hover { opacity: .92; }
+.btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+.btn-ghost { background: color-mix(in srgb, var(--result-text) 14%, transparent); color: var(--result-text); }
+
+/* Liste */
+.list-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.list-head .card-title { margin: 0; }
+.count { font-size: 13px; color: var(--muted); }
+.items { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: min(52vh, 520px); overflow: auto; }
+.item {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px;
+  padding: 10px 6px 10px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid transparent;
+}
+.item.editing { border-color: var(--accent); background: var(--accent-soft); }
+.item .main { cursor: pointer; min-width: 0; }
+.item .name { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .meta { font-size: 13px; color: var(--muted); }
+.item .kg { font-weight: 700; text-align: right; white-space: nowrap; }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); margin-left: 6px; vertical-align: 2px; }
+.del {
+  width: 38px; height: 38px; border-radius: 10px; border: 0; background: none; color: var(--muted);
+  display: grid; place-items: center;
+}
+.del:hover { background: var(--danger-soft); color: var(--danger); }
+.del svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+.empty-state { text-align: center; color: var(--muted); padding: 28px 12px; border: 1px dashed var(--border); border-radius: 12px; font-size: 15px; }
+.totals { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: grid; gap: 6px; }
+.totals .line { display: flex; justify-content: space-between; color: var(--muted); font-size: 15px; }
+.totals .line b { color: var(--text); }
+.totals .grand { font-size: 22px; color: var(--text); font-weight: 750; }
+.list-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.btn-soft {
+  height: 42px; padding: 0 14px; border-radius: 11px; border: 1px solid var(--border);
+  background: var(--surface); font-weight: 600; font-size: 14px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-soft:hover { background: var(--surface-2); }
+.btn-soft svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.btn-soft.danger { color: var(--danger); }
+.btn-soft:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Mobil alt bar */
+.bottombar { display: none; }
+@media (max-width: 899px) {
+  body.has-items { padding-bottom: 76px; }
+  body.has-items .bottombar {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 16px; padding-bottom: max(12px, env(safe-area-inset-bottom));
+    background: var(--surface); border-top: 1px solid var(--border);
+  }
+  .bottombar .k { font-size: 13px; color: var(--muted); }
+  .bottombar .v { font-size: 18px; font-weight: 750; }
+  .bottombar button { height: 42px; padding: 0 16px; border-radius: 11px; border: 0; background: var(--accent); color: var(--on-accent); font-weight: 650; }
+}
+
+/* Menü */
+dialog {
+  border: 1px solid var(--border); border-radius: 20px; padding: 0; width: min(440px, calc(100% - 32px));
+  background: var(--surface); color: var(--text); box-shadow: 0 20px 60px rgba(0, 0, 0, .3);
+}
+dialog::backdrop { background: rgba(8, 14, 18, .45); }
+.menu { padding: 18px; display: grid; gap: 6px; }
+.menu h2 { margin: 0 0 6px; font-size: 18px; }
+.menu-item {
+  display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; align-items: center;
+  padding: 12px; border-radius: 12px; border: 0; background: none; text-align: left; width: 100%;
+}
+.menu-item:hover { background: var(--surface-2); }
+.menu-item .ic { width: 36px; height: 36px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+.menu-item .ic svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.menu-item .t { font-weight: 600; }
+.menu-item .d { font-size: 13px; color: var(--muted); }
+.menu-item[hidden] { display: none; }
+.about { margin-top: 8px; padding: 12px; border-radius: 12px; background: var(--surface-2); font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
+.about b { color: var(--text); font-weight: 600; }
+.menu .close { margin-top: 8px; height: 46px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); font-weight: 600; }
+
+/* Bildirim */
+.toast {
+  position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(20px);
+  background: var(--text); color: var(--bg); padding: 12px 16px; border-radius: 12px; font-size: 15px;
+  opacity: 0; pointer-events: none; transition: .2s; z-index: 50; display: flex; gap: 12px; align-items: center;
+  width: max-content; max-width: calc(100% - 32px);
+}
+.toast.show { opacity: 1; transform: translateX(-50%); pointer-events: auto; }
+.toast button { border: 0; background: none; color: inherit; font-weight: 700; text-decoration: underline; padding: 0; }
+@media (min-width: 900px) { .toast { bottom: 28px; } }
+
+.print-only { display: none; }
+@media print {
+  body { background: #fff; color: #000; }
+  .topbar, .layout, .bottombar, .toast, dialog { display: none !important; }
+  .print-only { display: block; padding: 0 8mm; font-size: 12px; }
+  .print-only h1 { font-size: 18px; margin: 0 0 4px; }
+  .print-only p { margin: 0 0 12px; color: #555; }
+  .print-only table { width: 100%; border-collapse: collapse; }
+  .print-only th, .print-only td { border-bottom: 1px solid #ccc; padding: 6px 4px; text-align: left; }
+  .print-only td.r, .print-only th.r { text-align: right; }
+  .print-only tfoot td { font-weight: 700; border-top: 2px solid #000; border-bottom: 0; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M4 4h16v3.5h-6.2v9H20V20H4v-3.5h6.2v-9H4z"/></svg></span>
+    Kütle Hesap
+  </div>
+  <span class="spacer"></span>
+  <button class="icon-btn" id="themeBtn" title="Tema" aria-label="Temayı değiştir">
+    <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+  </button>
+  <button class="icon-btn" id="menuBtn" title="Menü" aria-label="Menü">
+    <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+</header>
+
+<main class="layout">
+  <div class="col">
+    <section class="card">
+      <h2 class="card-title">Profil</h2>
+      <div class="search">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="search" type="search" placeholder="Profil ara… (ör. HEA 200, 100x50)" autocomplete="off" aria-label="Profil ara">
+        <div class="results" id="results" hidden role="listbox"></div>
+      </div>
+      <div class="field" id="families"></div>
+      <div class="field">
+        <label class="label" for="size" id="sizeLabel">Boyut</label>
+        <div class="select-wrap"><select id="size"></select></div>
+      </div>
+      <div class="profile-info">
+        <div class="sketch" id="sketch"></div>
+        <div class="props" id="props"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Ölçü</h2>
+      <div class="field">
+        <label class="label" for="len">Uzunluk</label>
+        <div class="row2">
+          <input class="input num" id="len" inputmode="decimal" autocomplete="off">
+          <div class="seg" id="unit">
+            <button data-u="mm" aria-pressed="true">mm</button>
+            <button data-u="m" aria-pressed="false">m</button>
+          </div>
+        </div>
+        <div class="quick" id="quickLen">
+          <button data-m="1">1 m</button>
+          <button data-m="3">3 m</button>
+          <button data-m="6">6 m</button>
+          <button data-m="12">12 m</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="qty">Adet</label>
+        <div class="stepper">
+          <button id="qtyMinus" aria-label="Azalt">−</button>
+          <input class="input num" id="qty" inputmode="numeric" autocomplete="off">
+          <button id="qtyPlus" aria-label="Artır">+</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Malzeme</span>
+        <div class="seg full" id="mat"></div>
+        <div class="hint" id="matHint"></div>
+      </div>
+    </section>
+
+    <section class="card result" aria-live="polite">
+      <h2 class="card-title">Toplam kütle</h2>
+      <div class="big num" id="total">—</div>
+      <div class="ton num" id="ton"></div>
+      <div class="sub">
+        <div><div class="k">Parça başı</div><div class="v num" id="piece">—</div></div>
+        <div><div class="k">Birim ağırlık</div><div class="v num" id="perm">—</div></div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost" id="cancelEdit" hidden>Vazgeç</button>
+        <button class="btn btn-primary" id="addBtn">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>Listeye ekle</span>
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <div class="col list-col">
+    <section class="card" id="listCard">
+      <div class="list-head">
+        <h2 class="card-title">Hesap listesi</h2>
+        <span class="count" id="count"></span>
+      </div>
+      <ul class="items" id="items"></ul>
+      <div class="empty-state" id="empty">Henüz kalem yok.<br>Hesapladığın profili <b>Listeye ekle</b> ile buraya ekleyebilirsin.</div>
+      <div class="totals" id="totals" hidden>
+        <div class="line"><span>Toplam adet</span><b class="num" id="tQty"></b></div>
+        <div class="line"><span>Toplam uzunluk</span><b class="num" id="tLen"></b></div>
+        <div class="line grand"><span>Toplam kütle</span><span class="num" id="tMass"></span></div>
+      </div>
+      <div class="list-actions">
+        <button class="btn-soft" id="csvBtn"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg>Excel (CSV)</button>
+        <button class="btn-soft" id="printBtn"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M8 14h8v7H8z"/></svg>Yazdır</button>
+        <button class="btn-soft danger" id="clearBtn"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Temizle</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="bottombar">
+  <div><div class="k" id="bbCount"></div><div class="v num" id="bbMass"></div></div>
+  <button id="bbGo">Listeyi gör</button>
+</div>
+
+<dialog id="menu">
+  <div class="menu">
+    <h2>Menü</h2>
+    <button class="menu-item" id="dlApp">
+      <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg></span>
+      <span><span class="t">Yedek uygulama dosyasını indir</span><br><span class="d">KutleHesap.html — uygulama silinirse bu dosyayı Chrome ile açarak internetsiz kullan.</span></span>
+    </button>
+    <button class="menu-item" id="backupBtn">
+      <span class="ic"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 4v5h8V4M8 20v-6h8v6"/></svg></span>
+      <span><span class="t">Listeyi yedekle</span><br><span class="d">Hesap listesini bir dosyaya kaydeder.</span></span>
+    </button>
+    <button class="menu-item" id="restoreBtn">
+      <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21V9m0 0-4 4m4-4 4 4M5 3h14"/></svg></span>
+      <span><span class="t">Yedekten geri yükle</span><br><span class="d">Daha önce kaydedilen liste dosyasını açar.</span></span>
+    </button>
+    <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+    <div class="about">
+      <div><b>Formül:</b> Kütle = Birim ağırlık (kg/m) × Uzunluk (m) × Adet × (ρ / 7850)</div>
+      <div><b>Veri:</b> <span id="dataInfo"></span></div>
+      <div><b>Depolama:</b> <span id="storageInfo">—</span></div>
+      <div><b>Sürüm:</b> __VERSION__</div>
+    </div>
+    <button class="close" id="menuClose">Kapat</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"><span id="toastText"></span><button id="toastAction" hidden></button></div>
+
+<div class="print-only" id="printArea"></div>
+
+<script>
+"use strict";
+const DATA = /*__DATA__*/null;
+
+const MATERIALS = {
+  steel: { label: "Çelik", rho: 7850 },
+  inox:  { label: "Paslanmaz", rho: 7930 },
+  alu:   { label: "Alüminyum", rho: 2700 },
+};
+const GROUPS = [
+  ["I / H profiller", ["IPE", "IPN", "HEA", "HEB", "HEM"]],
+  ["U profiller", ["UPN", "UPE"]],
+  ["Kutu ve boru", ["SHS", "RHS", "CHS"]],
+  ["Köşebent ve lama", ["L", "LU", "FLAT"]],
+];
+
+const $ = (id) => document.getElementById(id);
+const FAM = Object.fromEntries(DATA.map((f) => [f.id, f]));
+
+/* ---------- Depolama (hata olursa sessizce devam) ---------- */
+const store = {
+  get(k, def) { try { const v = localStorage.getItem(k); return v == null ? def : JSON.parse(v); } catch { return def; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+/* ---------- Biçimlendirme ---------- */
+const fmt = (v, d = 2) => v.toLocaleString("tr-TR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmtAuto = (v) => v.toLocaleString("tr-TR", { maximumFractionDigits: 3 });
+const parseNum = (s) => {
+  const t = String(s).trim().replace(/\s/g, "").replace(",", ".");
+  if (!/^\d*\.?\d+$|^\d+\.$/.test(t)) return NaN;
+  return parseFloat(t);
+};
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const today = () => new Date().toISOString().slice(0, 10);
+
+/* ---------- Durum ---------- */
+const saved = store.get("kh.form", {});
+const state = {
+  fam: FAM[saved.fam] ? saved.fam : "IPE",
+  name: saved.name || "IPE 200",
+  len: saved.len ?? "6000",
+  unit: saved.unit === "m" ? "m" : "mm",
+  qty: saved.qty ?? "1",
+  mat: MATERIALS[saved.mat] ? saved.mat : "steel",
+  list: store.get("kh.list", []),
+  editId: null,
+};
+if (!Array.isArray(state.list)) state.list = [];
+
+function currentRow() {
+  const f = FAM[state.fam];
+  return f.rows.find((r) => r[0] === state.name) || f.rows[0];
+}
+function rowObj(f, r) {
+  const o = {};
+  f.cols.forEach((c, i) => (o[c.k] = r[i + 1]));
+  return o;
+}
+function gOf(f, r) { return r[r.length - 1]; }
+
+/* ---------- Aile ve boyut seçimi ---------- */
+function renderFamilies() {
+  const el = $("families");
+  el.innerHTML = GROUPS.map(([label, ids]) =>
+    `<div class="group-label">${label}</div><div class="chips">` +
+    ids.filter((id) => FAM[id]).map((id) =>
+      `<button class="chip" data-f="${id}" aria-pressed="${id === state.fam}">${esc(FAM[id].label)}</button>`).join("") +
+    `</div>`).join("");
+}
+$("families").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-f]");
+  if (!b || b.dataset.f === state.fam) return;
+  selectFamily(b.dataset.f);
+});
+
+function selectFamily(id, name) {
+  state.fam = id;
+  const f = FAM[id];
+  state.name = name && f.rows.some((r) => r[0] === name) ? name : pickSimilar(f);
+  renderFamilies();
+  renderSizes();
+  update();
+}
+function pickSimilar(f) {
+  // Yeni ailede ortalara yakın bir boyutla başla
+  return f.rows[Math.min(f.rows.length - 1, Math.floor(f.rows.length / 3))][0];
+}
+
+function renderSizes() {
+  const f = FAM[state.fam];
+  $("sizeLabel").textContent = `Boyut — ${f.desc} (${f.rows.length})`;
+  $("size").innerHTML = f.rows.map((r) =>
+    `<option value="${esc(r[0])}"${r[0] === state.name ? " selected" : ""}>${esc(r[0])}</option>`).join("");
+}
+$("size").addEventListener("change", (e) => { state.name = e.target.value; update(); });
+
+/* ---------- Kesit özellikleri ---------- */
+const SUP = { cm2: "cm²", cm3: "cm³", cm4: "cm⁴" };
+function keyHtml(k) {
+  const special = { Wely: ["W", "el,y"], Welz: ["W", "el,z"], Wply: ["W", "pl,y"], Wel: ["W", "el"], Wpl: ["W", "pl"] };
+  const [a, b] = special[k] || [k[0], k.slice(1)];
+  return b ? `${a}<sub>${b}</sub>` : a;
+}
+function renderProps() {
+  const f = FAM[state.fam], r = currentRow();
+  $("props").innerHTML = f.cols.map((c, i) => {
+    const v = r[i + 1];
+    return `<div class="prop"><span class="k">${keyHtml(c.k)}</span><span class="v num">${fmtAuto(v)} <span class="u">${SUP[c.u] || c.u}</span></span></div>`;
+  }).join("");
+  $("sketch").innerHTML = sketch(f, rowObj(f, r));
+}
+
+function sketch(f, p) {
+  let w, h, d = "";
+  const P = (pts) => "M" + pts.map((q) => q.join(",")).join("L") + "Z";
+  const rect = (x, y, rw, rh) => `M${x},${y}h${rw}v${rh}h${-rw}Z`;
+  switch (f.shape) {
+    case "I": {
+      ({ h, b: w } = p); const { tw, tf } = p, c = w / 2;
+      d = P([[0,0],[w,0],[w,tf],[c+tw/2,tf],[c+tw/2,h-tf],[w,h-tf],[w,h],[0,h],[0,h-tf],[c-tw/2,h-tf],[c-tw/2,tf],[0,tf]]);
+      break;
+    }
+    case "U": {
+      ({ h, b: w } = p); const { tw, tf } = p;
+      d = P([[0,0],[w,0],[w,tf],[tw,tf],[tw,h-tf],[w,h-tf],[w,h],[0,h]]);
+      break;
+    }
+    case "CHS": {
+      w = h = p.d; const R = p.d / 2, r = R - p.t;
+      d = `M${R-R},${R}a${R},${R} 0 1,0 ${2*R},0a${R},${R} 0 1,0 ${-2*R},0Z` +
+          `M${R-r},${R}a${r},${r} 0 1,0 ${2*r},0a${r},${r} 0 1,0 ${-2*r},0Z`;
+      break;
+    }
+    case "SHS": case "RHS": {
+      w = f.shape === "SHS" ? p.a : p.b; h = f.shape === "SHS" ? p.a : p.h; const t = p.t;
+      d = rect(0, 0, w, h) + rect(t, t, w - 2*t, h - 2*t);
+      break;
+    }
+    case "L": case "LU": {
+      h = p.a; w = f.shape === "L" ? p.a : p.b; const t = p.t;
+      d = P([[0,0],[t,0],[t,h-t],[w,h-t],[w,h],[0,h]]);
+      break;
+    }
+    default: {
+      w = p.b; h = p.t; d = rect(0, 0, w, h);
+    }
+  }
+  const S = Math.max(w, h), pad = S * 0.3, fs = S * 0.1;
+  const vb = [-pad, -pad * 0.55, w + pad * 1.55, h + pad * 1.4].map((v) => +v.toFixed(2)).join(" ");
+  const dimY = h + pad * 0.45, dimX = -pad * 0.42;
+  return `<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="${d}" fill="var(--shape-fill)" fill-rule="evenodd" stroke="var(--shape-stroke)" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+    <g stroke="var(--muted)" stroke-width="1" vector-effect="non-scaling-stroke">
+      <line x1="0" y1="${dimY}" x2="${w}" y2="${dimY}" vector-effect="non-scaling-stroke"/>
+      <line x1="${dimX}" y1="0" x2="${dimX}" y2="${h}" vector-effect="non-scaling-stroke"/>
+    </g>
+    <g fill="var(--muted)" font-size="${fs}" font-family="system-ui, sans-serif" text-anchor="middle">
+      <text x="${w / 2}" y="${dimY + fs * 1.15}">${fmtAuto(w)}</text>
+      <text x="${dimX - fs * 0.45}" y="${h / 2}" transform="rotate(-90 ${dimX - fs * 0.45} ${h / 2})">${fmtAuto(h)}</text>
+    </g>
+  </svg>`;
+}
+
+/* ---------- Malzeme ---------- */
+function renderMaterials() {
+  $("mat").innerHTML = Object.entries(MATERIALS).map(([k, m]) =>
+    `<button data-m="${k}" aria-pressed="${k === state.mat}">${m.label}</button>`).join("");
+  const m = MATERIALS[state.mat];
+  $("matHint").textContent = state.mat === "steel"
+    ? "Tablodaki birim ağırlıklar çelik (ρ = 7850 kg/m³) içindir."
+    : `${m.label} (ρ = ${m.rho} kg/m³): aynı ölçüdeki çelik profil ağırlığı ${fmt(m.rho / 7850, 3)} ile çarpılır.`;
+}
+$("mat").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-m]");
+  if (!b) return;
+  state.mat = b.dataset.m; renderMaterials(); update();
+});
+
+/* ---------- Uzunluk ve adet ---------- */
+$("len").addEventListener("input", (e) => { state.len = e.target.value; update(false); });
+$("unit").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-u]");
+  if (!b || b.dataset.u === state.unit) return;
+  const v = parseNum(state.len);
+  if (!isNaN(v)) state.len = fmtPlain(b.dataset.u === "m" ? v / 1000 : v * 1000);
+  state.unit = b.dataset.u;
+  syncInputs(); update();
+});
+$("quickLen").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-m]");
+  if (!b) return;
+  const m = +b.dataset.m;
+  state.len = fmtPlain(state.unit === "m" ? m : m * 1000);
+  syncInputs(); update();
+});
+function fmtPlain(v) { return String(+v.toFixed(4)).replace(".", ","); }
+
+$("qty").addEventListener("input", (e) => { state.qty = e.target.value; update(false); });
+$("qtyMinus").addEventListener("click", () => stepQty(-1));
+$("qtyPlus").addEventListener("click", () => stepQty(1));
+function stepQty(d) {
+  const q = parseInt(state.qty, 10);
+  state.qty = String(Math.max(1, (isNaN(q) ? 1 : q) + d));
+  syncInputs(); update();
+}
+
+function syncInputs() {
+  $("len").value = state.len;
+  $("qty").value = state.qty;
+  $("unit").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.u === state.unit));
+}
+
+/* ---------- Hesap ---------- */
+function compute() {
+  const f = FAM[state.fam], r = currentRow();
+  const G = gOf(f, r);
+  const lv = parseNum(state.len);
+  const L = isNaN(lv) ? NaN : state.unit === "m" ? lv : lv / 1000;
+  const qty = /^\d+$/.test(String(state.qty).trim()) ? parseInt(state.qty, 10) : NaN;
+  const k = MATERIALS[state.mat].rho / 7850;
+  const ok = L > 0 && qty > 0;
+  return { f, name: r[0], G, Gm: G * k, L, qty, ok, lenOk: L > 0, qtyOk: qty > 0,
+           piece: G * k * L, total: G * k * L * qty };
+}
+
+function update(full = true) {
+  const c = compute();
+  if (full) renderProps();
+  $("len").classList.toggle("invalid", !c.lenOk && state.len !== "");
+  $("qty").classList.toggle("invalid", !c.qtyOk && state.qty !== "");
+  $("perm").textContent = `${fmt(c.Gm)} kg/m`;
+  if (c.ok) {
+    $("total").innerHTML = `${fmt(c.total)}<small>kg</small>`;
+    $("piece").textContent = `${fmt(c.piece)} kg`;
+    $("ton").textContent = c.total >= 1000 ? `≈ ${fmt(c.total / 1000, 3)} ton` : "";
+  } else {
+    $("total").textContent = "—";
+    $("piece").textContent = "—";
+    $("ton").textContent = !c.lenOk ? "Geçerli bir uzunluk gir" : "Geçerli bir adet gir";
+  }
+  $("addBtn").disabled = !c.ok;
+  store.set("kh.form", { fam: state.fam, name: state.name, len: state.len, unit: state.unit, qty: state.qty, mat: state.mat });
+}
+
+/* ---------- Liste ---------- */
+function itemMass(it) { return it.G * (MATERIALS[it.mat]?.rho ?? 7850) / 7850 * it.L * it.qty; }
+
+$("addBtn").addEventListener("click", () => {
+  const c = compute();
+  if (!c.ok) return;
+  const it = { id: state.editId || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+               fam: state.fam, name: c.name, G: c.G, L: c.L, qty: c.qty, mat: state.mat, unit: state.unit };
+  if (state.editId) {
+    state.list = state.list.map((x) => (x.id === state.editId ? it : x));
+    state.editId = null;
+    toast("Kalem güncellendi");
+  } else {
+    state.list.push(it);
+    toast(`${c.name} eklendi — ${fmt(c.total)} kg`);
+  }
+  saveList(); renderList(); renderEditMode();
+});
+$("cancelEdit").addEventListener("click", () => { state.editId = null; renderList(); renderEditMode(); });
+
+function startEdit(id) {
+  const it = state.list.find((x) => x.id === id);
+  if (!it) return;
+  state.editId = id;
+  state.mat = it.mat; state.unit = it.unit === "m" ? "m" : "mm";
+  state.len = fmtPlain(state.unit === "m" ? it.L : it.L * 1000);
+  state.qty = String(it.qty);
+  if (FAM[it.fam]) selectFamily(it.fam, it.name);
+  renderMaterials(); syncInputs(); update(); renderList(); renderEditMode();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function renderEditMode() {
+  const editing = !!state.editId;
+  $("cancelEdit").hidden = !editing;
+  $("addBtn").querySelector("span").textContent = editing ? "Güncelle" : "Listeye ekle";
+}
+
+function saveList() { store.set("kh.list", state.list); }
+
+function totals() {
+  return state.list.reduce((a, it) => ({ mass: a.mass + itemMass(it), qty: a.qty + it.qty, len: a.len + it.L * it.qty }),
+                           { mass: 0, qty: 0, len: 0 });
+}
+
+function renderList() {
+  const has = state.list.length > 0;
+  $("items").innerHTML = state.list.map((it) => {
+    const mat = it.mat !== "steel" ? `<span class="badge">${MATERIALS[it.mat]?.label ?? it.mat}</span>` : "";
+    return `<li class="item${it.id === state.editId ? " editing" : ""}">
+      <div class="main" data-edit="${it.id}" title="Düzenlemek için dokun">
+        <div class="name">${esc(it.name)}${mat}</div>
+        <div class="meta num">${fmt(it.L * 1000, 0)} mm × ${it.qty} adet</div>
+      </div>
+      <div class="kg num">${fmt(itemMass(it))} kg</div>
+      <button class="del" data-del="${it.id}" aria-label="Sil"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </li>`;
+  }).join("");
+  $("empty").hidden = has;
+  $("totals").hidden = !has;
+  ["csvBtn", "printBtn", "clearBtn"].forEach((id) => ($(id).disabled = !has));
+  const t = totals();
+  $("count").textContent = has ? `${state.list.length} kalem` : "";
+  $("tQty").textContent = `${t.qty} adet`;
+  $("tLen").textContent = `${fmt(t.len)} m`;
+  $("tMass").textContent = `${fmt(t.mass)} kg`;
+  $("bbCount").textContent = `Liste · ${state.list.length} kalem`;
+  $("bbMass").textContent = `${fmt(t.mass)} kg`;
+  document.body.classList.toggle("has-items", has);
+}
+$("items").addEventListener("click", (e) => {
+  const del = e.target.closest("[data-del]");
+  if (del) {
+    const idx = state.list.findIndex((x) => x.id === del.dataset.del);
+    if (idx < 0) return;
+    const [removed] = state.list.splice(idx, 1);
+    if (state.editId === removed.id) state.editId = null;
+    saveList(); renderList(); renderEditMode();
+    toast(`${removed.name} silindi`, "Geri al", () => {
+      state.list.splice(idx, 0, removed); saveList(); renderList();
+    });
+    return;
+  }
+  const ed = e.target.closest("[data-edit]");
+  if (ed) startEdit(ed.dataset.edit);
+});
+$("clearBtn").addEventListener("click", () => {
+  if (!state.list.length || !confirm("Tüm liste silinsin mi?")) return;
+  const old = state.list;
+  state.list = []; state.editId = null;
+  saveList(); renderList(); renderEditMode();
+  toast("Liste temizlendi", "Geri al", () => { state.list = old; saveList(); renderList(); });
+});
+$("bbGo").addEventListener("click", () => $("listCard").scrollIntoView({ behavior: "smooth", block: "start" }));
+
+/* ---------- Dışa aktarma ---------- */
+function download(name, content, type) {
+  const blob = content instanceof Blob ? content : new Blob([content], { type });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+$("csvBtn").addEventListener("click", () => {
+  const n = (v, d = 2) => v.toFixed(d).replace(".", ",");
+  const lines = [["Sıra", "Profil", "Malzeme", "Uzunluk (mm)", "Adet", "Birim ağırlık (kg/m)", "Parça kütlesi (kg)", "Toplam kütle (kg)"]];
+  state.list.forEach((it, i) => {
+    const k = (MATERIALS[it.mat]?.rho ?? 7850) / 7850;
+    lines.push([i + 1, it.name, MATERIALS[it.mat]?.label ?? it.mat, n(it.L * 1000, 0), it.qty, n(it.G * k, 3), n(it.G * k * it.L), n(itemMass(it))]);
+  });
+  const t = totals();
+  lines.push(["", "TOPLAM", "", n(t.len * 1000, 0), t.qty, "", "", n(t.mass)]);
+  const csv = "﻿" + lines.map((l) => l.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+  download(`kutle-listesi-${today()}.csv`, csv, "text/csv;charset=utf-8");
+});
+
+$("printBtn").addEventListener("click", () => {
+  const t = totals();
+  $("printArea").innerHTML = `<h1>Kütle Hesap Listesi</h1><p>${new Date().toLocaleString("tr-TR")}</p>
+    <table><thead><tr><th>#</th><th>Profil</th><th>Malzeme</th><th class="r">Uzunluk (mm)</th><th class="r">Adet</th><th class="r">kg/m</th><th class="r">Toplam (kg)</th></tr></thead>
+    <tbody>${state.list.map((it, i) => {
+      const k = (MATERIALS[it.mat]?.rho ?? 7850) / 7850;
+      return `<tr><td>${i + 1}</td><td>${esc(it.name)}</td><td>${MATERIALS[it.mat]?.label ?? ""}</td><td class="r">${fmt(it.L * 1000, 0)}</td><td class="r">${it.qty}</td><td class="r">${fmt(it.G * k)}</td><td class="r">${fmt(itemMass(it))}</td></tr>`;
+    }).join("")}</tbody>
+    <tfoot><tr><td></td><td>Toplam</td><td></td><td class="r">${fmt(t.len * 1000, 0)}</td><td class="r">${t.qty}</td><td></td><td class="r">${fmt(t.mass)}</td></tr></tfoot></table>`;
+  window.print();
+});
+
+/* ---------- Arama ---------- */
+const norm = (s) => s.toLowerCase().replace(/[\s×x*]/g, "").replace(/,/g, ".");
+const INDEX = DATA.flatMap((f) => f.rows.map((r) => ({ f: f.id, name: r[0], G: gOf(f, r), key: norm(r[0]) })));
+let activeIdx = -1, lastResults = [];
+$("search").addEventListener("input", (e) => {
+  const q = norm(e.target.value);
+  const box = $("results");
+  if (!q) { box.hidden = true; return; }
+  const starts = [], contains = [];
+  for (const it of INDEX) {
+    if (it.key.startsWith(q)) starts.push(it);
+    else if (it.key.includes(q)) contains.push(it);
+  }
+  lastResults = starts.concat(contains).slice(0, 40);
+  activeIdx = lastResults.length ? 0 : -1;
+  box.innerHTML = lastResults.length
+    ? lastResults.map((it, i) => `<button data-i="${i}" class="${i === 0 ? "active" : ""}" role="option"><span>${esc(it.name)}</span><span class="r-g num">${fmt(it.G, 1)} kg/m</span></button>`).join("")
+    : `<div class="empty">Eşleşen profil yok</div>`;
+  box.hidden = false;
+});
+$("search").addEventListener("keydown", (e) => {
+  const box = $("results");
+  if (box.hidden || !lastResults.length) return;
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    activeIdx = (activeIdx + (e.key === "ArrowDown" ? 1 : -1) + lastResults.length) % lastResults.length;
+    box.querySelectorAll("button").forEach((b, i) => b.classList.toggle("active", i === activeIdx));
+    box.querySelector("button.active")?.scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter" && activeIdx >= 0) {
+    e.preventDefault(); pickResult(activeIdx);
+  } else if (e.key === "Escape") {
+    box.hidden = true;
+  }
+});
+$("results").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-i]");
+  if (b) pickResult(+b.dataset.i);
+});
+document.addEventListener("click", (e) => { if (!e.target.closest(".search")) $("results").hidden = true; });
+function pickResult(i) {
+  const it = lastResults[i];
+  $("search").value = ""; $("results").hidden = true; $("search").blur();
+  selectFamily(it.f, it.name);
+}
+
+/* ---------- Tema ---------- */
+const THEMES = ["auto", "light", "dark"];
+let theme = store.get("kh.theme", "auto");
+function applyTheme() {
+  if (theme === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", theme);
+  $("themeBtn").title = { auto: "Tema: sistem", light: "Tema: açık", dark: "Tema: koyu" }[theme];
+}
+$("themeBtn").addEventListener("click", () => {
+  theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+  store.set("kh.theme", theme); applyTheme();
+  toast($("themeBtn").title);
+});
+
+/* ---------- Bildirim ---------- */
+let toastTimer;
+function toast(text, actionLabel, action) {
+  $("toastText").textContent = text;
+  const btn = $("toastAction");
+  btn.hidden = !actionLabel;
+  btn.textContent = actionLabel || "";
+  btn.onclick = () => { $("toast").classList.remove("show"); action && action(); };
+  $("toast").classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $("toast").classList.remove("show"), actionLabel ? 6000 : 2600);
+}
+
+/* ---------- Menü, yedekler ---------- */
+const IS_WEB = location.protocol.startsWith("http");
+$("menuBtn").addEventListener("click", () => { refreshStorageInfo(); $("menu").showModal(); });
+$("menuClose").addEventListener("click", () => $("menu").close());
+$("menu").addEventListener("click", (e) => { if (e.target === $("menu")) $("menu").close(); });
+$("dlApp").hidden = !IS_WEB;
+
+$("dlApp").addEventListener("click", async () => {
+  try {
+    const res = await fetch("./index.html");
+    if (!res.ok) throw new Error();
+    download("KutleHesap.html", await res.blob());
+    toast("Yedek dosya indirildi — İndirilenler klasöründe sakla");
+  } catch {
+    toast("Dosya alınamadı, sayfayı yenileyip tekrar dene");
+  }
+});
+$("backupBtn").addEventListener("click", () => {
+  download(`kutle-liste-yedek-${today()}.json`, JSON.stringify({ app: "kutle-hesap", date: new Date().toISOString(), list: state.list }, null, 1), "application/json");
+  toast("Liste yedeği kaydedildi");
+});
+$("restoreBtn").addEventListener("click", () => $("restoreFile").click());
+$("restoreFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    const obj = JSON.parse(await file.text());
+    const list = Array.isArray(obj) ? obj : obj.list;
+    if (!Array.isArray(list) || !list.every((x) => x && typeof x.name === "string" && x.G > 0 && x.L > 0 && x.qty > 0)) throw new Error();
+    if (state.list.length && !confirm(`Mevcut ${state.list.length} kalemlik liste, yedekteki ${list.length} kalemle değiştirilsin mi?`)) return;
+    state.list = list.map((x) => ({ ...x, mat: MATERIALS[x.mat] ? x.mat : "steel" }));
+    state.editId = null;
+    saveList(); renderList(); renderEditMode();
+    $("menu").close();
+    toast(`${list.length} kalem geri yüklendi`);
+  } catch {
+    toast("Bu dosya geçerli bir liste yedeği değil");
+  }
+});
+
+async function refreshStorageInfo() {
+  let txt = IS_WEB ? "Tarayıcı deposu" : "Yerel dosya (yedek sürüm)";
+  try {
+    if (navigator.storage?.persisted) {
+      txt += (await navigator.storage.persisted()) ? " · kalıcı ✓" : " · kalıcı değil";
+    }
+  } catch {}
+  $("storageInfo").textContent = txt;
+}
+$("dataInfo").textContent = `${DATA.length} profil ailesi, ${INDEX.length} profil`;
+
+/* ---------- Başlat ---------- */
+applyTheme();
+renderFamilies();
+renderSizes();
+renderMaterials();
+syncInputs();
+update();
+renderList();
+renderEditMode();
+
+if (IS_WEB) {
+  try { navigator.storage?.persist?.(); } catch {}
+  if ("serviceWorker" in navigator) {
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (hadController) toast("Uygulama güncellendi", "Yenile", () => location.reload());
+    });
+  }
+}
+</script>
+</body>
+</html>
