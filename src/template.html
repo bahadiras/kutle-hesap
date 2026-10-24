@@ -191,6 +191,13 @@ button { cursor: pointer; }
   transform: rotate(45deg); pointer-events: none;
 }
 
+/* Özel ölçü girişleri */
+.dims { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.dim > span:first-child { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.unit-input { position: relative; display: block; }
+.unit-input .input { padding-right: 46px; }
+.unit-input em { position: absolute; right: 14px; top: 15px; font-style: normal; font-size: 14px; color: var(--muted); pointer-events: none; }
+
 /* Kesit bilgisi */
 .profile-info { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; margin-top: 16px; align-items: center; }
 .sketch { width: 120px; height: 120px; background: var(--surface-2); border-radius: 12px; display: grid; place-items: center; }
@@ -380,9 +387,13 @@ dialog::backdrop { background: rgba(8, 14, 18, .45); }
         <div class="results" id="results" hidden role="listbox"></div>
       </div>
       <div class="field" id="families"></div>
-      <div class="field">
+      <div class="field" id="stdBox">
         <label class="label" for="size" id="sizeLabel">Boyut</label>
         <div class="select-wrap"><select id="size"></select></div>
+      </div>
+      <div class="field" id="customBox" hidden>
+        <span class="label" id="customLabel"></span>
+        <div class="dims" id="dims"></div>
       </div>
       <div class="profile-info">
         <div class="sketch" id="sketch"></div>
@@ -513,6 +524,28 @@ const GROUPS = [
   ["Köşebent ve lama", ["L", "LU", "FLAT"]],
 ];
 
+/* Özel ölçü: kullanıcı kendi ölçüsünü girer, kesit alanı (mm²) formülle bulunur */
+const n0 = (v) => fmtAuto(v);
+const CUSTOM = {
+  round:  { label: "Dolu yuvarlak", shape: "ROUND", fields: [["d", "Çap d", 40]],
+            area: (p) => Math.PI * p.d ** 2 / 4, name: (p) => `Ø${n0(p.d)} dolu yuvarlak` },
+  hex:    { label: "Altıköşe", shape: "HEX", fields: [["s", "Anahtar ağzı s", 24]],
+            area: (p) => Math.sqrt(3) / 2 * p.s ** 2, name: (p) => `Altıköşe SW${n0(p.s)}` },
+  square: { label: "Kare dolu", shape: "FLAT", fields: [["a", "Kenar a", 30]],
+            area: (p) => p.a ** 2, sk: (p) => ({ b: p.a, t: p.a }), name: (p) => `Kare dolu ${n0(p.a)}×${n0(p.a)}` },
+  flat:   { label: "Lama / dikdörtgen", shape: "FLAT", fields: [["b", "Genişlik b", 50], ["t", "Kalınlık t", 10]],
+            area: (p) => p.b * p.t, name: (p) => `Lama ${n0(p.b)}×${n0(p.t)}` },
+  tube:   { label: "Boru", shape: "CHS", fields: [["d", "Dış çap D", 60.3], ["t", "Et kalınlığı t", 3.2]],
+            check: (p) => (2 * p.t < p.d ? "" : "Et kalınlığı çapın yarısından küçük olmalı"),
+            area: (p) => Math.PI * (p.d ** 2 - (p.d - 2 * p.t) ** 2) / 4, name: (p) => `Boru Ø${n0(p.d)}×${n0(p.t)}` },
+  box:    { label: "Kutu", shape: "RHS", fields: [["h", "Yükseklik h", 100], ["b", "Genişlik b", 50], ["t", "Et kalınlığı t", 3]],
+            check: (p) => (2 * p.t < Math.min(p.h, p.b) ? "" : "Et kalınlığı kenarların yarısından küçük olmalı"),
+            area: (p) => p.h * p.b - (p.h - 2 * p.t) * (p.b - 2 * p.t), name: (p) => `Kutu ${n0(p.h)}×${n0(p.b)}×${n0(p.t)}` },
+  angle:  { label: "Köşebent", shape: "LU", fields: [["a", "Kol a", 60], ["b", "Kol b", 40], ["t", "Kalınlık t", 5]],
+            check: (p) => (p.t < Math.min(p.a, p.b) ? "" : "Kalınlık kollardan küçük olmalı"),
+            area: (p) => p.t * (p.a + p.b - p.t), name: (p) => `Köşebent ${n0(p.a)}×${n0(p.b)}×${n0(p.t)}` },
+};
+
 const $ = (id) => document.getElementById(id);
 const FAM = Object.fromEntries(DATA.map((f) => [f.id, f]));
 
@@ -542,6 +575,9 @@ const state = {
   unit: saved.unit === "m" ? "m" : "mm",
   qty: saved.qty ?? "1",
   mat: MATERIALS[saved.mat] ? saved.mat : "steel",
+  mode: saved.mode === "custom" && CUSTOM[saved.cshape] ? "custom" : "std",
+  cshape: CUSTOM[saved.cshape] ? saved.cshape : "round",
+  cdims: saved.cdims && typeof saved.cdims === "object" ? saved.cdims : {},
   list: store.get("kh.list", []),
   editId: null,
 };
@@ -556,30 +592,82 @@ function rowObj(f, r) {
   f.cols.forEach((c, i) => (o[c.k] = r[i + 1]));
   return o;
 }
-function gOf(f, r) { return r[r.length - 1]; }
+function gOf(f, r) { return r[f.g]; }
 
 /* ---------- Aile ve boyut seçimi ---------- */
 function renderFamilies() {
-  const el = $("families");
-  el.innerHTML = GROUPS.map(([label, ids]) =>
+  const std = state.mode === "std";
+  const chip = (attr, id, label, on) => `<button class="chip" ${attr}="${id}" aria-pressed="${on}">${esc(label)}</button>`;
+  $("families").innerHTML = GROUPS.map(([label, ids]) =>
     `<div class="group-label">${label}</div><div class="chips">` +
-    ids.filter((id) => FAM[id]).map((id) =>
-      `<button class="chip" data-f="${id}" aria-pressed="${id === state.fam}">${esc(FAM[id].label)}</button>`).join("") +
-    `</div>`).join("");
+    ids.filter((id) => FAM[id]).map((id) => chip("data-f", id, FAM[id].label, std && id === state.fam)).join("") +
+    `</div>`).join("") +
+    `<div class="group-label">Özel ölçü — kendi ölçünü gir</div><div class="chips">` +
+    Object.entries(CUSTOM).map(([k, c]) => chip("data-c", k, c.label, !std && k === state.cshape)).join("") +
+    `</div>`;
 }
 $("families").addEventListener("click", (e) => {
+  const c = e.target.closest("[data-c]");
+  if (c) { selectCustom(c.dataset.c); return; }
   const b = e.target.closest("[data-f]");
-  if (!b || b.dataset.f === state.fam) return;
+  if (!b || (state.mode === "std" && b.dataset.f === state.fam)) return;
   selectFamily(b.dataset.f);
 });
 
 function selectFamily(id, name) {
+  state.mode = "std";
   state.fam = id;
   const f = FAM[id];
   state.name = name && f.rows.some((r) => r[0] === name) ? name : pickSimilar(f);
   renderFamilies();
   renderSizes();
+  renderMode();
   update();
+}
+function selectCustom(k) {
+  state.mode = "custom";
+  state.cshape = k;
+  renderFamilies();
+  renderMode();
+  update();
+}
+function renderMode() {
+  const custom = state.mode === "custom";
+  $("stdBox").hidden = custom;
+  $("customBox").hidden = !custom;
+  if (custom) renderDims();
+  renderMaterials();
+}
+
+function renderDims() {
+  const c = CUSTOM[state.cshape];
+  const v = (state.cdims[state.cshape] ||= {});
+  $("customLabel").textContent = `${c.label} — ölçüler`;
+  $("dims").innerHTML = c.fields.map(([k, label, def]) => {
+    if (v[k] == null) v[k] = fmtPlain(def);
+    return `<label class="dim"><span>${label}</span><span class="unit-input">` +
+      `<input class="input num" inputmode="decimal" autocomplete="off" data-k="${k}" value="${esc(v[k])}"><em>mm</em></span></label>`;
+  }).join("");
+}
+$("dims").addEventListener("input", (e) => {
+  const k = e.target.dataset.k;
+  if (!k) return;
+  state.cdims[state.cshape][k] = e.target.value;
+  update();
+});
+
+function customCalc() {
+  const c = CUSTOM[state.cshape], raw = state.cdims[state.cshape] || {};
+  const p = {};
+  for (const [k] of c.fields) p[k] = parseNum(raw[k] ?? "");
+  const allPos = c.fields.every(([k]) => p[k] > 0);
+  const msg = !allPos ? "Ölçüleri gir" : c.check ? c.check(p) : "";
+  const ok = !msg;
+  $("dims").querySelectorAll("input").forEach((i) => {
+    const v = p[i.dataset.k];
+    i.classList.toggle("invalid", i.value !== "" && !(v > 0));
+  });
+  return { c, p, ok, msg, A: ok ? c.area(p) : NaN };
 }
 function pickSimilar(f) {
   // Yeni ailede ortalara yakın bir boyutla başla
@@ -601,7 +689,18 @@ function keyHtml(k) {
   const [a, b] = special[k] || [k[0], k.slice(1)];
   return b ? `${a}<sub>${b}</sub>` : a;
 }
+function propHtml(k, v, u) {
+  return `<div class="prop"><span class="k">${keyHtml(k)}</span><span class="v num">${v} <span class="u">${SUP[u] || u}</span></span></div>`;
+}
 function renderProps() {
+  if (state.mode === "custom") {
+    const cc = customCalc();
+    const rows = cc.c.fields.map(([k]) => propHtml(k, cc.p[k] > 0 ? fmtAuto(cc.p[k]) : "—", "mm"));
+    if (cc.ok) rows.push(propHtml("A", fmtAuto(+(cc.A / 100).toFixed(2)), "cm2"), propHtml("G", fmtAuto(+(cc.A * 0.00785).toFixed(3)), "kg/m"));
+    $("props").innerHTML = rows.join("");
+    $("sketch").innerHTML = cc.ok ? sketch({ shape: cc.c.shape }, cc.c.sk ? cc.c.sk(cc.p) : cc.p) : "";
+    return;
+  }
   const f = FAM[state.fam], r = currentRow();
   $("props").innerHTML = f.cols.map((c, i) => {
     const v = r[i + 1];
@@ -631,6 +730,16 @@ function sketch(f, p) {
           `M${R-r},${R}a${r},${r} 0 1,0 ${2*r},0a${r},${r} 0 1,0 ${-2*r},0Z`;
       break;
     }
+    case "ROUND": {
+      w = h = p.d; const R = p.d / 2;
+      d = `M0,${R}a${R},${R} 0 1,0 ${2*R},0a${R},${R} 0 1,0 ${-2*R},0Z`;
+      break;
+    }
+    case "HEX": {
+      h = p.s; w = 2 * p.s / Math.sqrt(3);
+      d = P([[w/4,0],[3*w/4,0],[w,h/2],[3*w/4,h],[w/4,h],[0,h/2]]);
+      break;
+    }
     case "SHS": case "RHS": {
       w = f.shape === "SHS" ? p.a : p.b; h = f.shape === "SHS" ? p.a : p.h; const t = p.t;
       d = rect(0, 0, w, h) + rect(t, t, w - 2*t, h - 2*t);
@@ -655,8 +764,8 @@ function sketch(f, p) {
       <line x1="${dimX}" y1="0" x2="${dimX}" y2="${h}" vector-effect="non-scaling-stroke"/>
     </g>
     <g fill="var(--muted)" font-size="${fs}" font-family="system-ui, sans-serif" text-anchor="middle">
-      <text x="${w / 2}" y="${dimY + fs * 1.15}">${fmtAuto(w)}</text>
-      <text x="${dimX - fs * 0.45}" y="${h / 2}" transform="rotate(-90 ${dimX - fs * 0.45} ${h / 2})">${fmtAuto(h)}</text>
+      <text x="${w / 2}" y="${dimY + fs * 1.15}">${fmtAuto(+w.toFixed(1))}</text>
+      <text x="${dimX - fs * 0.45}" y="${h / 2}" transform="rotate(-90 ${dimX - fs * 0.45} ${h / 2})">${fmtAuto(+h.toFixed(1))}</text>
     </g>
   </svg>`;
 }
@@ -666,9 +775,11 @@ function renderMaterials() {
   $("mat").innerHTML = Object.entries(MATERIALS).map(([k, m]) =>
     `<button data-m="${k}" aria-pressed="${k === state.mat}">${m.label}</button>`).join("");
   const m = MATERIALS[state.mat];
-  $("matHint").textContent = state.mat === "steel"
-    ? "Tablodaki birim ağırlıklar çelik (ρ = 7850 kg/m³) içindir."
-    : `${m.label} (ρ = ${m.rho} kg/m³): aynı ölçüdeki çelik profil ağırlığı ${fmt(m.rho / 7850, 3)} ile çarpılır.`;
+  $("matHint").textContent = state.mode === "custom"
+    ? `${m.label}: kesit alanı × ρ (${m.rho} kg/m³) ile hesaplanır.`
+    : state.mat === "steel"
+      ? "Tablodaki birim ağırlıklar çelik (ρ = 7850 kg/m³) içindir."
+      : `${m.label} (ρ = ${m.rho} kg/m³): aynı ölçüdeki çelik profil ağırlığı ${fmt(m.rho / 7850, 3)} ile çarpılır.`;
 }
 $("mat").addEventListener("click", (e) => {
   const b = e.target.closest("[data-m]");
@@ -712,14 +823,24 @@ function syncInputs() {
 
 /* ---------- Hesap ---------- */
 function compute() {
-  const f = FAM[state.fam], r = currentRow();
-  const G = gOf(f, r);
+  // G her zaman çelik (7850 kg/m³) karşılığı kg/m; malzeme farkı oranla uygulanır
+  let G, name, dimsOk = true, dimsMsg = "", custom = null;
+  if (state.mode === "custom") {
+    const cc = customCalc();
+    dimsOk = cc.ok; dimsMsg = cc.msg;
+    G = cc.A * 7850 / 1e6;
+    name = cc.ok ? cc.c.name(cc.p) : cc.c.label;
+    custom = { shape: state.cshape, dims: cc.p };
+  } else {
+    const f = FAM[state.fam], r = currentRow();
+    G = gOf(f, r); name = r[0];
+  }
   const lv = parseNum(state.len);
   const L = isNaN(lv) ? NaN : state.unit === "m" ? lv : lv / 1000;
   const qty = /^\d+$/.test(String(state.qty).trim()) ? parseInt(state.qty, 10) : NaN;
   const k = MATERIALS[state.mat].rho / 7850;
-  const ok = L > 0 && qty > 0;
-  return { f, name: r[0], G, Gm: G * k, L, qty, ok, lenOk: L > 0, qtyOk: qty > 0,
+  const ok = dimsOk && L > 0 && qty > 0;
+  return { name, G, Gm: G * k, L, qty, ok, dimsOk, dimsMsg, custom, lenOk: L > 0, qtyOk: qty > 0,
            piece: G * k * L, total: G * k * L * qty };
 }
 
@@ -728,7 +849,7 @@ function update(full = true) {
   if (full) renderProps();
   $("len").classList.toggle("invalid", !c.lenOk && state.len !== "");
   $("qty").classList.toggle("invalid", !c.qtyOk && state.qty !== "");
-  $("perm").textContent = `${fmt(c.Gm)} kg/m`;
+  $("perm").textContent = c.dimsOk ? `${fmt(c.Gm)} kg/m` : "—";
   if (c.ok) {
     $("total").innerHTML = `${fmt(c.total)}<small>kg</small>`;
     $("piece").textContent = `${fmt(c.piece)} kg`;
@@ -736,10 +857,11 @@ function update(full = true) {
   } else {
     $("total").textContent = "—";
     $("piece").textContent = "—";
-    $("ton").textContent = !c.lenOk ? "Geçerli bir uzunluk gir" : "Geçerli bir adet gir";
+    $("ton").textContent = !c.dimsOk ? c.dimsMsg : !c.lenOk ? "Geçerli bir uzunluk gir" : "Geçerli bir adet gir";
   }
   $("addBtn").disabled = !c.ok;
-  store.set("kh.form", { fam: state.fam, name: state.name, len: state.len, unit: state.unit, qty: state.qty, mat: state.mat });
+  store.set("kh.form", { fam: state.fam, name: state.name, len: state.len, unit: state.unit, qty: state.qty, mat: state.mat,
+                         mode: state.mode, cshape: state.cshape, cdims: state.cdims });
 }
 
 /* ---------- Liste ---------- */
@@ -749,7 +871,8 @@ $("addBtn").addEventListener("click", () => {
   const c = compute();
   if (!c.ok) return;
   const it = { id: state.editId || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-               fam: state.fam, name: c.name, G: c.G, L: c.L, qty: c.qty, mat: state.mat, unit: state.unit };
+               fam: c.custom ? "CUSTOM" : state.fam, name: c.name, G: c.G, L: c.L, qty: c.qty, mat: state.mat, unit: state.unit };
+  if (c.custom) it.custom = c.custom;
   if (state.editId) {
     state.list = state.list.map((x) => (x.id === state.editId ? it : x));
     state.editId = null;
@@ -769,7 +892,12 @@ function startEdit(id) {
   state.mat = it.mat; state.unit = it.unit === "m" ? "m" : "mm";
   state.len = fmtPlain(state.unit === "m" ? it.L : it.L * 1000);
   state.qty = String(it.qty);
-  if (FAM[it.fam]) selectFamily(it.fam, it.name);
+  if (it.custom && CUSTOM[it.custom.shape]) {
+    state.cdims[it.custom.shape] = Object.fromEntries(Object.entries(it.custom.dims).map(([k, v]) => [k, fmtPlain(v)]));
+    selectCustom(it.custom.shape);
+  } else if (FAM[it.fam]) {
+    selectFamily(it.fam, it.name);
+  }
   renderMaterials(); syncInputs(); update(); renderList(); renderEditMode();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -999,7 +1127,7 @@ $("dataInfo").textContent = `${DATA.length} profil ailesi, ${INDEX.length} profi
 applyTheme();
 renderFamilies();
 renderSizes();
-renderMaterials();
+renderMode();
 syncInputs();
 update();
 renderList();

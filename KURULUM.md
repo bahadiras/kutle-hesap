@@ -25,6 +25,8 @@ Bilgisayarda: aynı adresi Chrome veya Edge ile aç, adres çubuğundaki **yükl
 
 ## 3. Güncelleme yayınlama
 1. `profil_bilgileri.xlsx` veya `src/` içindekileri düzenle.
+   Excel'de sütunların sırası serbesttir; sütunlar başlık adına göre bulunur (`G [kg/m]` mutlaka olmalı).
+   Bir sütun eksik ya da bir değer hatalıysa `build.py` hatayı yazar ve uygulamayı üretmez.
 2. Bu klasörde terminalde:
    ```
    python build.py
