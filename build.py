@@ -8,6 +8,7 @@ profil_bilgileri.xlsx -> JSON verisi -> src/template.html içine gömülür.
 
 Kullanım:  python build.py
 """
+import base64
 import json
 import re
 import shutil
@@ -101,26 +102,59 @@ def load_data():
     return families, errors
 
 
+ICON_TOP = (28, 128, 152)     # gradyan üst rengi
+ICON_BOTTOM = (10, 52, 70)    # gradyan alt rengi
+
+
+def icon_mark(S, scale=1.0):
+    """Ağırlık (kütle) silueti ve içinde I-profil boşluğu: beyaz alan maskesi.
+    Koordinatlar 0..1 birim karede tanımlı; scale, merkeze göre küçültür."""
+    def P(x, y):
+        return (S * (0.5 + (x - 0.5) * scale), S * (0.5 + (y - 0.5) * scale))
+
+    def L(v):
+        return S * v * scale
+
+    m = Image.new("L", (S, S), 0)
+    d = ImageDraw.Draw(m)
+    # Gövde: köşeleri yuvarlatılmış yamuk (çekirdek + r yarıçaplı genişletme)
+    r = 0.05
+    core = [P(0.5 - 0.185, 0.45), P(0.5 + 0.185, 0.45), P(0.5 + 0.27, 0.75), P(0.5 - 0.27, 0.75)]
+    d.polygon(core, fill=255)
+    for i, a in enumerate(core):
+        b = core[(i + 1) % len(core)]
+        d.line([a, b], fill=255, width=int(L(2 * r)))
+        d.ellipse([a[0] - L(r), a[1] - L(r), a[0] + L(r), a[1] + L(r)], fill=255)
+    # Tutamak halkası
+    cx, cy = P(0.5, 0.315)
+    ro, ri = L(0.115), L(0.06)
+    d.ellipse([cx - ro, cy - ro, cx + ro, cy + ro], fill=255)
+    d.ellipse([cx - ri, cy - ri, cx + ri, cy + ri], fill=0)
+    # I-profil boşluğu
+    x0, x1, y0, y1 = 0.39, 0.61, 0.505, 0.705
+    fl, web = 0.042, 0.048
+    d.rectangle([P(x0, y0), P(x1, y0 + fl)], fill=0)
+    d.rectangle([P(x0, y1 - fl), P(x1, y1)], fill=0)
+    d.rectangle([P(0.5 - web / 2, y0), P(0.5 + web / 2, y1)], fill=0)
+    return m
+
+
 def make_icon(size, path, maskable=False):
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    bg = (21, 94, 117, 255)
+    S = 2048  # büyük çizip küçültmek kenarları yumuşatır
+    grad = Image.new("RGB", (S, S))
+    gd = ImageDraw.Draw(grad)
+    for y in range(S):
+        t = y / (S - 1)
+        gd.line([(0, y), (S, y)], fill=tuple(round(a + (b - a) * t) for a, b in zip(ICON_TOP, ICON_BOTTOM)))
+    shape = Image.new("L", (S, S), 0)
     if maskable:
-        d.rectangle([0, 0, size, size], fill=bg)
-        pad = size * 0.22
+        shape.paste(255, (0, 0, S, S))
     else:
-        d.rounded_rectangle([0, 0, size - 1, size - 1], radius=size * 0.22, fill=bg)
-        pad = size * 0.2
-    # I kesiti
-    w = size - 2 * pad
-    fl = w * 0.16
-    web = w * 0.16
-    x0, y0 = pad, pad
-    fg = (255, 255, 255, 255)
-    d.rectangle([x0, y0, x0 + w, y0 + fl], fill=fg)
-    d.rectangle([x0, y0 + w - fl, x0 + w, y0 + w], fill=fg)
-    d.rectangle([x0 + w / 2 - web / 2, y0, x0 + w / 2 + web / 2, y0 + w], fill=fg)
-    img.save(path)
+        ImageDraw.Draw(shape).rounded_rectangle([0, 0, S - 1, S - 1], radius=S * 0.225, fill=255)
+    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    img.paste(grad, (0, 0), shape)
+    img.paste((255, 255, 255), (0, 0), icon_mark(S, 0.78 if maskable else 1.0))
+    img.resize((size, size), Image.LANCZOS).save(path)
 
 
 def main():
@@ -133,8 +167,15 @@ def main():
     data_json = json.dumps(families, ensure_ascii=False, separators=(",", ":"))
     version = datetime.now().strftime("%Y.%m.%d-%H%M%S")
 
+    # Başlık logosu ve sekme ikonu: yedek HTML tek başına da çalışsın diye sayfaya gömülür
+    APP.mkdir(exist_ok=True)
+    (APP / "icons").mkdir(exist_ok=True)
+    make_icon(96, APP / "icons" / "icon-96.png")
+    icon_data = "data:image/png;base64," + base64.b64encode((APP / "icons" / "icon-96.png").read_bytes()).decode()
+
     html = (SRC / "template.html").read_text(encoding="utf-8")
-    html = html.replace("/*__DATA__*/null", data_json).replace("__VERSION__", version)
+    html = (html.replace("/*__DATA__*/null", data_json).replace("__VERSION__", version)
+                .replace("__ICON_DATA__", icon_data))
 
     APP.mkdir(exist_ok=True)
     (APP / "icons").mkdir(exist_ok=True)

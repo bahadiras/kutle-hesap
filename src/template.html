@@ -7,7 +7,7 @@
 <meta name="description" content="Çelik profil kütle hesaplama aracı — internetsiz çalışır.">
 <meta name="theme-color" content="#155e75">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icon-192.png">
+<link rel="icon" href="__ICON_DATA__">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <style>
 :root {
@@ -100,11 +100,7 @@ button { cursor: pointer; }
   border-bottom: 1px solid var(--border);
 }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -.01em; }
-.brand-mark {
-  width: 32px; height: 32px; border-radius: 9px; background: var(--accent);
-  display: grid; place-items: center;
-}
-.brand-mark svg { width: 18px; height: 18px; fill: var(--on-accent); }
+.brand-mark { width: 36px; height: 36px; display: block; }
 .topbar .spacer { flex: 1; }
 .icon-btn {
   width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--border);
@@ -365,7 +361,7 @@ dialog::backdrop { background: rgba(8, 14, 18, .45); }
 
 <header class="topbar">
   <div class="brand">
-    <span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M4 4h16v3.5h-6.2v9H20V20H4v-3.5h6.2v-9H4z"/></svg></span>
+    <img class="brand-mark" src="__ICON_DATA__" alt="">
     Kütle Hesap
   </div>
   <span class="spacer"></span>
