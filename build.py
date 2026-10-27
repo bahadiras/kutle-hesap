@@ -102,69 +102,43 @@ def load_data():
     return families, errors
 
 
-# İkon renkleri: zemin ve I-profil için üstten alta gradyan
+# İkon: düz zemin üzerinde dev bir I-profil (zemin, profil rengi)
 ICON_PALETTES = {
-    "grafit":  {"bg": ((40, 46, 54), (15, 18, 23)), "mark": ((242, 244, 247), (160, 168, 179))},
-    "lacivert": {"bg": ((22, 38, 66), (8, 15, 30)), "mark": ((238, 211, 150), (172, 134, 70))},
-    "beyaz":   {"bg": ((252, 252, 250), (228, 230, 234)), "mark": ((52, 57, 64), (18, 20, 24))},
+    "siyah":   ((14, 14, 14), (255, 255, 255)),
+    "turuncu": ((255, 84, 26), (14, 14, 14)),
+    "beyaz":   ((255, 255, 255), (14, 14, 14)),
 }
-ICON_PALETTE = "lacivert"
-
-
-def vgradient(S, top, bottom, y0=0, y1=None):
-    """S×S boyutunda dikey gradyan; renk y0..y1 aralığında geçiş yapar."""
-    y1 = S if y1 is None else y1
-    img = Image.new("RGB", (S, S))
-    d = ImageDraw.Draw(img)
-    for y in range(S):
-        t = min(1, max(0, (y - y0) / max(1, y1 - y0)))
-        d.line([(0, y), (S, y)], fill=tuple(round(a + (b - a) * t) for a, b in zip(top, bottom)))
-    return img
+ICON_PALETTE = "turuncu"
 
 
 def icon_mark(S, scale=1.0):
-    """Köşe yuvarlatmalı (fillet) I-profil kesiti maskesi.
+    """İkonu neredeyse tamamen dolduran keskin köşeli dev I-profil maskesi.
     Koordinatlar 0..1 birim karede; scale, merkeze göre küçültür."""
     def X(v):
         return S * (0.5 + (v - 0.5) * scale)
 
-    def L(v):
-        return S * v * scale
-
-    x0, x1, y0, y1 = 0.27, 0.73, 0.25, 0.75   # dış ölçüler
-    tf, tw, rf, re = 0.078, 0.092, 0.034, 0.012  # başlık, gövde, iç köşe, uç yuvarlatma
+    x0, x1, y0, y1 = 0.17, 0.83, 0.17, 0.83   # dış ölçüler
+    tf, tw = 0.15, 0.2                        # başlık kalınlığı, gövde genişliği
     m = Image.new("L", (S, S), 0)
     d = ImageDraw.Draw(m)
-    d.rounded_rectangle([X(x0), X(y0), X(x1), X(y0 + tf)], radius=L(re), fill=255)
-    d.rounded_rectangle([X(x0), X(y1 - tf), X(x1), X(y1)], radius=L(re), fill=255)
-    wl, wr = 0.5 - tw / 2, 0.5 + tw / 2
-    d.rectangle([X(wl), X(y0 + tf / 2), X(wr), X(y1 - tf / 2)], fill=255)
-    # Gövde-başlık birleşimlerine iç köşe yuvarlatması
-    for ex, sx in ((wl, -1), (wr, 1)):
-        for ey, sy in ((y0 + tf, 1), (y1 - tf, -1)):
-            ax, ay = ex + sx * rf, ey + sy * rf
-            d.rectangle([X(min(ex, ax)), X(min(ey, ay)), X(max(ex, ax)), X(max(ey, ay))], fill=255)
-            d.ellipse([X(ax) - L(rf), X(ay) - L(rf), X(ax) + L(rf), X(ay) + L(rf)], fill=0)
-    return m, X(y0), X(y1)
+    d.rectangle([X(x0), X(y0), X(x1), X(y0 + tf)], fill=255)
+    d.rectangle([X(x0), X(y1 - tf), X(x1), X(y1)], fill=255)
+    d.rectangle([X(0.5 - tw / 2), X(y0), X(0.5 + tw / 2), X(y1)], fill=255)
+    return m
 
 
 def make_icon(size, path, maskable=False, palette=None):
-    pal = ICON_PALETTES[palette or ICON_PALETTE]
+    bg, fg = ICON_PALETTES[palette or ICON_PALETTE]
     S = 2048  # büyük çizip küçültmek kenarları yumuşatır
     shape = Image.new("L", (S, S), 0)
     if maskable:
         shape.paste(255, (0, 0, S, S))
     else:
         ImageDraw.Draw(shape).rounded_rectangle([0, 0, S - 1, S - 1], radius=S * 0.225, fill=255)
+    mark = icon_mark(S, 0.74 if maskable else 1.0)
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    img.paste(vgradient(S, *pal["bg"]), (0, 0), shape)
-    if not maskable:
-        # İnce iç kenar parlaklığı
-        edge = Image.new("L", (S, S), 0)
-        ImageDraw.Draw(edge).rounded_rectangle([4, 4, S - 5, S - 5], radius=S * 0.222, outline=34, width=int(S * 0.006))
-        img.paste((255, 255, 255), (0, 0), edge)
-    mark, my0, my1 = icon_mark(S, 0.8 if maskable else 1.0)
-    img.paste(vgradient(S, *pal["mark"], my0, my1), (0, 0), mark)
+    img.paste(bg, (0, 0), shape)
+    img.paste(fg, (0, 0), mark)
     img.resize((size, size), Image.LANCZOS).save(path)
 
 
