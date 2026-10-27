@@ -108,7 +108,7 @@ ICON_PALETTES = {
     "turuncu": ((255, 84, 26), (14, 14, 14)),
     "beyaz":   ((255, 255, 255), (14, 14, 14)),
 }
-ICON_PALETTE = "turuncu"
+ICON_PALETTE = "siyah"
 
 
 def icon_mark(S, scale=1.0):

@@ -1,5 +1,5 @@
 // Kütle Hesap — çevrimdışı önbellek
-const CACHE = "kutle-hesap-2026.10.27-115146";
+const CACHE = "kutle-hesap-2026.10.27-115319";
 const ASSETS = [
   "./",
   "./index.html",
