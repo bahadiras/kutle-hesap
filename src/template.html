@@ -78,7 +78,9 @@
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { -webkit-text-size-adjust: 100%; }
+/* Hızlı art arda dokunmada çift dokunma yakınlaştırmasını kapatır; iki parmakla yakınlaştırma açık kalır */
+html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
+button, input, select, label { touch-action: manipulation; }
 body {
   margin: 0;
   background: var(--bg);
